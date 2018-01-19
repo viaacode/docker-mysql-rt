@@ -9,12 +9,12 @@ MYSQLOPTS="--max_allowed_packet=64M --innodb_log_files_in_group=8 --innodb_log_f
 if [ ! -r $DUMPBASE.sql* ] ; then
 
     ORIGDUMP=$1
-    DUMPFILE="$RECOVERY_AREA/$(basename $ORIGDUMP)"
+    DUMPFILE="$RecoveryArea/$(basename $ORIGDUMP)"
 
     # Recover the dump file
     echo "$(date '+%m/%d %H:%M:%S'): Recovering dump file: $DUMPFILE"
     [ -r $DUMPFILE ] && rm $DUMPFILE
-    cat <<EOF | socat -,ignoreeof $RECOVERY_SOCKET
+    cat <<EOF | socat -,ignoreeof $RecoverySocket
     { \
         "client": "$HOSTNAME", \
         "path": "$ORIGDUMP" \

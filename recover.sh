@@ -6,17 +6,17 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     SnapShotDir=$1
     BinLogDir=${2:-$(dirname $SnapShotDir)/binlog}
     Time=${3:-null}
-    RecoveryDir="$RECOVERY_AREA/$(basename $SnapShotDir)"
+    RecoveryDir="$RecoveryArea/$(basename $SnapShotDir)"
     DataDir="$RecoveryDir/dbs"
-    Report="$RECOVERY_AREA/recovery_report.txt"
+    Report="$RecoveryArea/recovery_report.txt"
     [ -e $Report ] && rm -f $Report
     mysql=( mysql --protocol=socket -uroot )
     Uid=$(id -u mysql)
 
-    rm -fr $RECOVERY_AREA/*
+    rm -fr $RecoveryArea/*
 
     echo "$(date '+%m/%d %H:%M:%S'): Recovering Database files"
-    cat <<EOF | socat -,ignoreeof $RECOVERY_SOCKET
+    cat <<EOF | socat -,ignoreeof $RecoverySocket
     { \
         "client": "$HOSTNAME", \
         "path": "$SnapShotDir", \
@@ -51,7 +51,7 @@ EOF
     cat <&3 &
 
     echo "$(date '+%m/%d %H:%M:%S'): Recover binary logs"
-    cat <<EOF | socat -,ignoreeof $RECOVERY_SOCKET
+    cat <<EOF | socat -,ignoreeof $RecoverySocket
     { \
         "client": "$HOSTNAME", \
         "path": "$BinLogDir/binlog.index", \
@@ -68,9 +68,9 @@ EOF
         [ "${firstlog[0]}" != $(basename $file) ] && continue; #skip until first log
         while read -r file; do
             # add binlog to argument list and recover it
-            args+=( "$RECOVERY_AREA/$(basename $file)" )
+            args+=( "$RecoveryArea/$(basename $file)" )
             echo "$(date '+%m/%d %H:%M:%S'): Recovering binlog: $file"
-            cat <<-EOF | socat -,ignoreeof $RECOVERY_SOCKET
+            cat <<-EOF | socat -,ignoreeof $RecoverySocket
             { \
                 "client": "$HOSTNAME", \
                 "path": "$file", \
@@ -78,7 +78,7 @@ EOF
             }
 EOF
         done
-    done <$RECOVERY_AREA/binlog.index
+    done <$RecoveryArea/binlog.index
 
     echo "$(date '+%m/%d %H:%M:%S'): Applying binlogs: ${args[@]}" | tee -a $Report
     eval mysqlbinlog ${args[@]} | ${mysql[@]}
