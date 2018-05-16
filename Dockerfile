@@ -14,10 +14,10 @@ RUN usermod -G $RecoveryAreaGid mysql
 ENV MYSQL_RANDOM_ROOT_PASSWORD true
 
 COPY show_dbs.sql /docker-entrypoint-initdb.d/10-show_dbs.sql
+COPY create_test_user.sql /docker-entrypoint-initdb.d/90-create_test_user.sql
 
 COPY recover.sh /usr/local/bin/
 COPY load.sh /usr/local/bin/
-COPY recoverytestuser.sh /usr/local/bin/
 
 ENV RecoveryArea /recovery_area
 ENV RecoverySocket "unix:/recovery_socket"

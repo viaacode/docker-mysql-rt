@@ -1,33 +1,38 @@
 #!/usr/bin/env bash
-[ -z "$1" ] && exit 1
+[ -z "$1" ] && exit 1 # BackupDir mandatary
 
 if [ ! -d "/var/lib/mysql/mysql" ]; then
 
-    SnapShotDir=$1
-    BinLogDir=${2:-$(dirname $SnapShotDir)/binlog}
+    BackupDir=$1
+    BinLogDir=$2
     Time=${3:-null}
-    RecoveryDir="$RecoveryArea/$(basename $SnapShotDir)"
-    DataDir="$RecoveryDir/dbs"
+
+    RecoveryDir="$RecoveryArea/$(basename $BackupDir)"
     Report="$RecoveryArea/recovery_report.txt"
     [ -e $Report ] && rm -f $Report
+
     mysql=( mysql --protocol=socket -uroot )
     Uid=$(id -u mysql)
 
-    rm -fr $RecoveryArea/*
-
     echo "$(date '+%m/%d %H:%M:%S'): Recovering Database files"
+    rm -fr $RecoveryArea/*
     cat <<EOF | socat -,ignoreeof $RecoverySocket
     { \
         "client": "$HOSTNAME", \
-        "path": "$SnapShotDir", \
+        "path": "$BackupDir", \
         "uid": "$Uid", \
         "time": "$Time" \
     }
 EOF
+    StatusFile="$(find $RecoveryDir -name backup.status)"
+    DataDir="$(dirname $(find $RecoveryDir -type d -name mysql))"
+    BinLogDir=${BinLogDir:-$DataDir}
+
+    # symlink the recovered database files to the standard datafile location
     for i in $DataDir/*; do ln -s $i /var/lib/mysql; done
 
     echo -e "\n$(date '+%m/%d %H:%M:%S'): Recovery report for $HOSTNAME:\n" >>$Report
-    cat $RecoveryDir/backup.status 2>&1 | tee -a $Report
+    cat $StatusFile 2>&1 | tee -a $Report
 
     echo "$(date '+%m/%d %H:%M:%S'): Checking Database innodb file integrity"
     innochecksum /var/lib/mysql/ibdata*
@@ -41,7 +46,7 @@ EOF
 
     while read -ru ${tailcop[0]} line; do
      echo $line
-     [ $(expr "$line" : '.*InnoDB: 5.5.57 started; log sequence number') -gt 0 ] && echo $line >>$Report
+     [ $(expr "$line" : '.*InnoDB: .* started; log sequence number') -gt 0 ] && echo $line >>$Report
      [ $(expr "$line" : '.*\[Note\] mysqld: ready for connections.') -gt 0 ] && break
     done
     sleep 1
@@ -59,7 +64,7 @@ EOF
         "time": "$Time" \
     }
 EOF
-    firstlog=( $(egrep '^binlog\.[0-9]+\s[0-9]+$' $RecoveryDir/backup.status) )
+    firstlog=( $(egrep '^binlog\.[0-9]+\s[0-9]+$' "$StatusFile") )
     # firstlog[0] : filename of binlog during backup"
     # firstlog[1] : position in the firstlog during backup snapshot
     args=( "-j ${firstlog[1]}" )
@@ -93,7 +98,7 @@ EOF
 
     # Create Test User, etc ..."
     # This flushes privileges!
-    recoverytestuser.sh
+    sed -r -i -e "s/\\\$RecoverySecret/$RecoverySecret/" /docker-entrypoint-initdb.d/90-create_test_user.sql
     for f in /docker-entrypoint-initdb.d/*.sql; do
         echo "$0: running $f"
     	eval ${mysql[@]} < "$f"

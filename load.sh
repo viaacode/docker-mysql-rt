@@ -28,7 +28,8 @@ EOF
     ln -s $DUMPFILE "$DUMPBASE.$EXT"
     chown mysql:mysql $DUMPFILE
 
-    recoverytestuser.sh
+    sed -r -i -e "s/\\\$RecoverySecret/$RecoverySecret/" /docker-entrypoint-initdb.d/90-create_test_user.sql
+
     coproc tailcop { exec docker-entrypoint.sh $MYSQLOPTS --skip-networking 2>&1 ; }
 
     sleep 10800 && echo "$(date '+%m/%d %H:%M:%S'): Timeout during init" && kill $tailcop_PID &
