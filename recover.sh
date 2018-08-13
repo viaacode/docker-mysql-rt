@@ -42,17 +42,19 @@ EOF
 
     echo "$(date '+%m/%d %H:%M:%S'): Starting MySQL Server"
     # Do not open tcp socket yet
-    coproc tailcop { exec /usr/local/bin/docker-entrypoint.sh --skip-grant-tables --skip-networking 2>&1 ; }
+    coproc tailcop {
+        exec /usr/local/bin/docker-entrypoint.sh --skip-grant-tables --skip-networking 2>&1 
+    }
 
-    while read -ru ${tailcop[0]} line; do
+    exec 3<&${tailcop[0]}
+
+    while read -ru 3 line; do
      echo $line
      [ $(expr "$line" : '.*InnoDB: .* started; log sequence number') -gt 0 ] && echo $line >>$Report
      [ $(expr "$line" : '.*\[Note\] mysqld: ready for connections.') -gt 0 ] && break
     done
-    sleep 1
 
     # Display output of mysqld during recovery
-    exec 3<&${tailcop[0]}
     cat <&3 &
 
     echo "$(date '+%m/%d %H:%M:%S'): Recover binary logs"
@@ -105,10 +107,8 @@ EOF
     done
 
     # Shutdown
-    pkill -x cat  # Stop reading mysqld output in order to sync on shutdown
     echo "$(date '+%m/%d %H:%M:%S'): Shutting down MySQL Server"
-    kill $tailcop_PID
-    cat <&${tailcop[0]}  # Wait for shutdown while showing progress
+    [ -n "$tailcop_PID" ] && kill $tailcop_PID && wait $tailcop_PID
     exit 0
 else
     # Delegate control to the docker-io/mysql container implementation
