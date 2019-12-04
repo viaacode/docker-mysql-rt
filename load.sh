@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 
-[ -z "$1" ] && exit 1
+while getopts "d:t:" opt; do
+    case $opt in
+        d) ORIGDUMP=$OPTARG
+            ;;
+        t) Time=$OPTARG
+            ;;
+    esac
+done
+
+[ -z "$ORIGDUMP" ] && exit 1 # BackupDir mandatary
+Time=${Time:=null}
 
 DUMPBASE="/docker-entrypoint-initdb.d/10-mysqldump"
 MYSQLOPTS="--max_allowed_packet=64M --innodb_log_files_in_group=8 --innodb_log_file_size=20M"
@@ -8,7 +18,6 @@ MYSQLOPTS="--max_allowed_packet=64M --innodb_log_files_in_group=8 --innodb_log_f
 # Recover the dump unless it has been recovered before
 if [ ! -r $DUMPBASE.sql* ] ; then
 
-    ORIGDUMP=$1
     DUMPFILE="$RecoveryArea/$(basename $ORIGDUMP)"
 
     # Recover the dump file

@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
-[ -z "$1" ] && exit 1 # BackupDir mandatary
+
+while getopts ":d:l:t:" opt; do
+    case $opt in
+        d) BackupDir=$OPTARG
+            ;;
+        l) BinLogDir=$OPTARG
+            ;;
+        t) Time=$OPTARG
+            ;;
+    esac
+done
 
 if [ ! -d "/var/lib/mysql/mysql" ]; then
 
-    BackupDir=$1
-    BinLogDir=$2
-    Time=${3:-null}
+    [ -z "$BackupDir" ] && exit 1 # BackupDir mandatary
+    Time=${Time:=null}
 
     RecoveryDir="$RecoveryArea/$(basename $BackupDir)"
     Report="$RecoveryArea/recovery_report.txt"
