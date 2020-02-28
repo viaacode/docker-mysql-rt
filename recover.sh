@@ -81,19 +81,19 @@ EOF
     args=( "-j ${firstlog[1]}" )
     [ "$Time" != "null" ] && args+=( "--stop-datetime='$Time'" )
     while read -r file; do
-        [ "${firstlog[0]}" != $(basename $file) ] && continue; #skip until first log
-        while read -r file; do
-            # add binlog to argument list and recover it
-            args+=( "$RecoveryArea/$(basename $file)" )
-            echo "$(date '+%m/%d %H:%M:%S'): Recovering binlog: $file"
-            cat <<-EOF | socat -,ignoreeof $RecoverySocket
+        # As long as we have not seen the first loga, skip
+        # entries in the binlog list until we encounter the first log
+        [ ${#args[*]} -le 1 -a "${firstlog[0]}" != $(basename $file) ] && continue
+        # add binlog to argument list and recover it
+        args+=( "$RecoveryArea/$(basename $file)" )
+        echo "$(date '+%m/%d %H:%M:%S'): Recovering binlog: $file"
+         cat <<-EOF | socat -,ignoreeof $RecoverySocket
             { \
                 "client": "$HOSTNAME", \
                 "path": "$file", \
                 "uid": "$Uid" \
             }
 EOF
-        done
     done <$RecoveryArea/binlog.index
 
     echo "$(date '+%m/%d %H:%M:%S'): Applying binlogs: ${args[@]}" | tee -a $Report
